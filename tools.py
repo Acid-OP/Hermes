@@ -94,3 +94,20 @@ def read_file(path: str) -> str:
             return f.read()[:2000]
     except Exception as e:
         return f"ERROR: {e}"
+
+
+@tool(
+    name="write_file",
+    description="Write text to a file on disk (overwrites). Use to save results.",
+    parameters={
+        "type": "object",
+        "properties": {"path": {"type": "string"}, "content": {"type": "string"}},
+        "required": ["path", "content"],
+    },
+    # ACTION: it has a side effect, so the harness gates it (approval + idempotency).
+    category=ToolCategory.ACTION,
+)
+def write_file(path: str, content: str) -> str:
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(content)
+    return f"wrote {len(content)} chars to {path}"
