@@ -21,6 +21,7 @@ client = OpenAI(
 )
 MODEL = "gemini-2.5-flash"
 MAX_ITERATIONS = 10
+OFFLOAD_THRESHOLD = 600  # tool results larger than this get offloaded
 
 
 def _idempotency_key(name, args) -> str:
@@ -47,6 +48,19 @@ def _execute(t, args) -> str:
         return f"ERROR: {e}"
 
 
+def _maybe_offload(result: str) -> str:
+    # Keep big outputs out of the context: store the full thing, hand the model
+    # only a short reference it can expand on demand via read_tool_log.
+    if len(result) <= OFFLOAD_THRESHOLD:
+        return result
+    log_id = f"log{len(tools.TOOL_LOG) + 1}"
+    tools.TOOL_LOG[log_id] = result
+    return (
+        f"[offloaded {len(result)} chars to {log_id}] "
+        f"call read_tool_log('{log_id}') to retrieve the full content."
+    )
+
+
 def run(user_message: str) -> str:
     messages = [
         {
@@ -56,6 +70,7 @@ def run(user_message: str) -> str:
         {"role": "user", "content": user_message},
     ]
     done_actions: dict = {}  # idempotency ledger for side-effecting calls
+    tools.TOOL_LOG.clear()  # offload store is per-run
 
     for iteration in range(MAX_ITERATIONS):
         print(f"\n--- iteration {iteration + 1} ---")
@@ -80,7 +95,7 @@ def run(user_message: str) -> str:
                 key = _idempotency_key(name, args)
                 if key in done_actions:
                     # A retried side effect is recognized, not repeated. This is
-                    # what stops an action (a payment, a message) from firing twice.
+                    # what stops an action (a payment, a message) firing twice.
                     result = f"[idempotent] already executed earlier: {done_actions[key]}"
                 elif not _approve(t, args):
                     result = "[denied] human declined this action"
@@ -90,6 +105,7 @@ def run(user_message: str) -> str:
             else:
                 result = _execute(t, args)
 
+            result = _maybe_offload(result)
             print(f"  [OBSERVE] {str(result)[:120]}")
             messages.append(
                 {"role": "tool", "tool_call_id": tc.id, "content": str(result)}

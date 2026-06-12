@@ -12,7 +12,10 @@ OpenClaw, and lessons from OpenAI/Anthropic harness-engineering writing.
   transcript: reason → act → observe → repeat → stop. Three stop conditions.
   Tool errors fed back as observations. Wired to Gemini via its
   OpenAI-compatible endpoint. → `agent.py`
-- [ ] Layer 2 — Tools (design, taxonomy, idempotency, approval, deferred loading)
+- [x] **Layer 2 — Tools.** First-class tool registry + data/action/orchestration
+  taxonomy; action tools gated by human approval + an idempotency ledger;
+  large tool outputs offloaded to a store with only a reference in context.
+  → `tools.py`, `agent.py`
 - [ ] Layer 3 — Context engineering (assembly, caching, compaction)
 - [ ] Layer 4 — Memory (episodic / semantic / procedural / entity / summary)
 - [ ] Layer 5 — The harness (repo-as-record, init, verification, handoff)

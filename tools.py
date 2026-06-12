@@ -59,6 +59,13 @@ def get(name):
     return _REGISTRY.get(name)
 
 
+# Offload store: full tool outputs live here keyed by id; the context gets only
+# a short reference. Keeps a single big tool result from poisoning every later
+# turn's reasoning (and from costing tokens forever). This is the seam into
+# Layer 3 (context engineering).
+TOOL_LOG: dict = {}
+
+
 # --------------------------------------------------------------------------
 # The tools
 # --------------------------------------------------------------------------
@@ -94,6 +101,20 @@ def read_file(path: str) -> str:
             return f.read()[:2000]
     except Exception as e:
         return f"ERROR: {e}"
+
+
+@tool(
+    name="read_tool_log",
+    description="Retrieve the full content of an offloaded tool result by its log id.",
+    parameters={
+        "type": "object",
+        "properties": {"log_id": {"type": "string"}},
+        "required": ["log_id"],
+    },
+    category=ToolCategory.DATA,
+)
+def read_tool_log(log_id: str) -> str:
+    return TOOL_LOG.get(log_id, f"ERROR: no such log id {log_id}")
 
 
 @tool(
