@@ -9,6 +9,7 @@ This is procedural memory: not "what happened" (episodic) but "how to do X".
 
 from __future__ import annotations
 
+import inspect
 import json
 import os
 import re
@@ -65,6 +66,42 @@ def verify_skill(spec: dict, test_input, expected) -> bool:
         return str(expected) in str(out)
     except Exception:
         return False
+
+
+def _params_from_fn(fn) -> dict:
+    # Derive a tool schema from the synthesized function's signature so the
+    # model knows how to call its newly-acquired tool.
+    props, required = {}, []
+    for pname in inspect.signature(fn).parameters:
+        props[pname] = {"type": "string"}
+        required.append(pname)
+    return {"type": "object", "properties": props, "required": required}
+
+
+def register_skill(spec: dict) -> None:
+    # Admit a verified skill into the LIVE tool registry so the agent reuses it
+    # for the rest of its life, and persist it for future sessions.
+    import tools
+
+    fn = compile_skill(spec)
+    tools._REGISTRY[spec["name"]] = tools.Tool(
+        name=spec["name"],
+        description=spec["description"],
+        parameters=_params_from_fn(fn),
+        impl=fn,
+        category=tools.ToolCategory.DATA,
+    )
+    save_skill(spec["name"], spec["code"], spec["description"])
+
+
+def extend(capability: str, test_input, expected) -> str:
+    # The self-extending loop: write -> test -> admit -> reuse. A capability the
+    # agent lacked becomes a permanent tool, with zero new human code.
+    spec = synthesize(capability)
+    if verify_skill(spec, test_input, expected):
+        register_skill(spec)
+        return f"acquired skill: {spec['name']}"
+    return f"rejected synthesized skill for: {capability}"
 
 
 def save_skill(name: str, code: str, description: str) -> None:
