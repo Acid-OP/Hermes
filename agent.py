@@ -14,6 +14,10 @@ from tools import ToolCategory
 
 MAX_ITERATIONS = 10
 
+# Stable tier of the system prompt — frozen for the whole session so the
+# provider can cache this prefix across turns.
+SYSTEM_PROMPT = "You are a precise assistant. Use tools for math, file reads, and file writes."
+
 
 def _idempotency_key(name, args) -> str:
     return hashlib.sha256(
@@ -47,21 +51,18 @@ def _maybe_offload(result: str) -> str:
 
 
 def run(user_message: str) -> str:
-    messages = [
-        {
-            "role": "system",
-            "content": "You are a precise assistant. Use tools for math, file reads, and file writes.",
-        },
-        {"role": "user", "content": user_message},
-    ]
+    # history holds only the conversation (no system prompt). The system prompt
+    # is assembled fresh each turn and kept frozen, so it stays cacheable.
+    history = [{"role": "user", "content": user_message}]
     done_actions: dict = {}
     tools.TOOL_LOG.clear()
 
     for iteration in range(MAX_ITERATIONS):
-        print(f"\n--- iteration {iteration + 1} (~{context.estimate_tokens(messages)} tok) ---")
-        resp = llm.complete(messages, tools=tools.all_schemas())
+        print(f"\n--- iteration {iteration + 1} (~{context.estimate_tokens(history)} tok) ---")
+        api_messages = context.assemble(SYSTEM_PROMPT, history)
+        resp = llm.complete(api_messages, tools=tools.all_schemas())
         msg = resp.choices[0].message
-        messages.append(msg.model_dump(exclude_none=True))
+        history.append(msg.model_dump(exclude_none=True))
 
         if not msg.tool_calls:
             return msg.content
@@ -88,7 +89,7 @@ def run(user_message: str) -> str:
 
             result = _maybe_offload(result)
             print(f"  [OBSERVE] {str(result)[:120]}")
-            messages.append(
+            history.append(
                 {"role": "tool", "tool_call_id": tc.id, "content": str(result)}
             )
 

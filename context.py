@@ -23,3 +23,26 @@ def estimate_tokens(messages) -> int:
         for tc in m.get("tool_calls") or []:
             total += len(str(tc))
     return total // 4
+
+
+def build_system_prompt(stable: str, project_context: str = "") -> str:
+    # Stable tier (identity + tool guidance) and project tier change rarely, so
+    # they live in the frozen prefix that providers can cache.
+    prompt = stable
+    if project_context:
+        prompt += "\n\n# Project context\n" + project_context
+    return prompt
+
+
+def assemble(system_prompt: str, history: list, volatile: str = "") -> list:
+    # Build the actual request without mutating stored history. The system
+    # prompt stays byte-identical across turns (cache-friendly); anything
+    # volatile (time, fresh memory) is appended to the LATEST user turn so it
+    # never disturbs the cacheable prefix.
+    msgs = [{"role": "system", "content": system_prompt}] + [dict(m) for m in history]
+    if volatile:
+        for m in reversed(msgs):
+            if m.get("role") == "user" and isinstance(m.get("content"), str):
+                m["content"] = m["content"] + "\n\n[context]\n" + volatile
+                break
+    return msgs
