@@ -25,6 +25,33 @@ def trace(event: str, **data) -> None:
         f.write(json.dumps(rec, default=str) + "\n")
 
 
+class TaskLedger:
+    # A structured task list the agent works against, instead of an open-ended
+    # "do stuff" goal. Bounds scope (it can't wander) and gives an objective
+    # completion predicate (all_done) that verification can check against —
+    # rather than trusting the model to say it's finished.
+    def __init__(self, items=None):
+        self.items = [{"desc": d, "done": False} for d in (items or [])]
+
+    def add(self, desc: str) -> None:
+        self.items.append({"desc": desc, "done": False})
+
+    def complete(self, index: int) -> None:
+        if 0 <= index < len(self.items):
+            self.items[index]["done"] = True
+
+    def pending(self) -> list:
+        return [i["desc"] for i in self.items if not i["done"]]
+
+    def all_done(self) -> bool:
+        return bool(self.items) and all(i["done"] for i in self.items)
+
+    def render(self) -> str:
+        return "\n".join(
+            f"[{'x' if i['done'] else ' '}] {i['desc']}" for i in self.items
+        )
+
+
 def load_instructions(workspace: str = ".") -> str:
     # The repo is the system of record: project rules live in a file the agent
     # reads, loaded into the (cacheable) project tier of the system prompt.
