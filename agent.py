@@ -9,6 +9,7 @@ import sys
 
 import context
 import llm
+import memory
 import tools
 from tools import ToolCategory
 
@@ -72,7 +73,12 @@ def _maybe_offload(result: str) -> str:
     )
 
 
-def run(user_message: str) -> str:
+def run(user_message: str, session_id: str = "default") -> str:
+    # Durable memory: recall prior turns from this session and persist new ones.
+    memory.save_turn(session_id, "user", user_message)
+    digest = memory.session_digest(session_id)
+    system_prompt = context.build_system_prompt(SYSTEM_PROMPT, project_context=digest)
+
     # history holds only the conversation (no system prompt). The system prompt
     # is assembled fresh each turn and kept frozen, so it stays cacheable.
     history = [{"role": "user", "content": user_message}]
@@ -84,12 +90,13 @@ def run(user_message: str) -> str:
         if compacted:
             print("  [COMPACT] summarized middle of transcript")
         print(f"\n--- iteration {iteration + 1} (~{context.estimate_tokens(history)} tok) ---")
-        api_messages = context.assemble(SYSTEM_PROMPT, history)
+        api_messages = context.assemble(system_prompt, history)
         resp = llm.complete(api_messages, tools=tools.all_schemas())
         msg = resp.choices[0].message
         history.append(msg.model_dump(exclude_none=True))
 
         if not msg.tool_calls:
+            memory.save_turn(session_id, "assistant", msg.content)
             return msg.content
 
         for tc in msg.tool_calls:

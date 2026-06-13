@@ -47,3 +47,11 @@ def load_session(session: str) -> list:
     ).fetchall()
     c.close()
     return [{"role": r, "content": t} for r, t in rows]
+
+
+def session_digest(session: str, limit: int = 20) -> str:
+    # A compact recall of recent prior turns, to inject as context on resume.
+    rows = load_session(session)[-limit:]
+    if not rows:
+        return ""
+    return "\n".join(f"{r['role']}: {r['content'][:200]}" for r in rows)
