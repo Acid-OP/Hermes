@@ -106,6 +106,21 @@ def read_file(path: str) -> str:
 
 
 @tool(
+    name="remember",
+    description="Persist a durable fact as key/value for future sessions (a preference, a decision, an entity).",
+    parameters={
+        "type": "object",
+        "properties": {"key": {"type": "string"}, "value": {"type": "string"}},
+        "required": ["key", "value"],
+    },
+    category=ToolCategory.DATA,
+)
+def remember(key: str, value: str) -> str:
+    memory.remember_fact(key, value)
+    return f"remembered: {key}"
+
+
+@tool(
     name="memory_search",
     description="Search durable memory of past turns. Use before answering anything about prior work, decisions, or facts the user gave you earlier.",
     parameters={

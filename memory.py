@@ -49,6 +49,25 @@ def load_session(session: str) -> list:
     return [{"role": r, "content": t} for r, t in rows]
 
 
+def remember_fact(key: str, value: str) -> None:
+    # Durable facts (preferences, decisions, entities) keyed for easy recall —
+    # the user-model / entity slice of memory. Upsert keeps one value per key.
+    c = _conn()
+    c.execute(
+        "INSERT OR REPLACE INTO facts(key, value, ts) VALUES(?,?,?)",
+        (key, value, time.time()),
+    )
+    c.commit()
+    c.close()
+
+
+def recall_facts() -> dict:
+    c = _conn()
+    rows = c.execute("SELECT key, value FROM facts ORDER BY ts DESC").fetchall()
+    c.close()
+    return {k: v for k, v in rows}
+
+
 def search(query: str, limit: int = 5) -> list:
     # Keyword recall across all stored turns (the FTS-style approach — Hermes's
     # lane). A real system swaps this for embedding/vector search; the interface
