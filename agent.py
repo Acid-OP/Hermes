@@ -1,27 +1,18 @@
 """
-Agent harness — the loop. Tools and their registry live in tools.py.
+Agent harness — the loop. Model access is in llm.py, tools in tools.py,
+context machinery in context.py.
 """
 
 import hashlib
 import json
-import os
 import sys
 
-from dotenv import load_dotenv
-from openai import OpenAI
-
+import context
+import llm
 import tools
 from tools import ToolCategory
 
-load_dotenv()
-
-client = OpenAI(
-    api_key=os.environ["GEMINI_API_KEY"],
-    base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-)
-MODEL = "gemini-2.5-flash"
 MAX_ITERATIONS = 10
-OFFLOAD_THRESHOLD = 600  # tool results larger than this get offloaded
 
 
 def _idempotency_key(name, args) -> str:
@@ -31,9 +22,6 @@ def _idempotency_key(name, args) -> str:
 
 
 def _approve(tool, args) -> bool:
-    # Human-in-the-loop gate for irreversible ACTION tools. Pausing here is a
-    # different kind of stop than Layer 1's: the loop pauses because it reached
-    # the edge of its authority, not because the task is done.
     if not sys.stdin.isatty():
         print(f"  [APPROVE] auto-approving '{tool.name}' (non-interactive run)")
         return True
@@ -44,14 +32,11 @@ def _execute(t, args) -> str:
     try:
         return str(t.impl(**args))
     except Exception as e:
-        # Tool failure is an observation, never an exception that kills the loop.
         return f"ERROR: {e}"
 
 
 def _maybe_offload(result: str) -> str:
-    # Keep big outputs out of the context: store the full thing, hand the model
-    # only a short reference it can expand on demand via read_tool_log.
-    if len(result) <= OFFLOAD_THRESHOLD:
+    if len(result) <= 600:
         return result
     log_id = f"log{len(tools.TOOL_LOG) + 1}"
     tools.TOOL_LOG[log_id] = result
@@ -69,14 +54,12 @@ def run(user_message: str) -> str:
         },
         {"role": "user", "content": user_message},
     ]
-    done_actions: dict = {}  # idempotency ledger for side-effecting calls
-    tools.TOOL_LOG.clear()  # offload store is per-run
+    done_actions: dict = {}
+    tools.TOOL_LOG.clear()
 
     for iteration in range(MAX_ITERATIONS):
-        print(f"\n--- iteration {iteration + 1} ---")
-        resp = client.chat.completions.create(
-            model=MODEL, messages=messages, tools=tools.all_schemas()
-        )
+        print(f"\n--- iteration {iteration + 1} (~{context.estimate_tokens(messages)} tok) ---")
+        resp = llm.complete(messages, tools=tools.all_schemas())
         msg = resp.choices[0].message
         messages.append(msg.model_dump(exclude_none=True))
 
@@ -94,8 +77,6 @@ def run(user_message: str) -> str:
             elif t.category == ToolCategory.ACTION:
                 key = _idempotency_key(name, args)
                 if key in done_actions:
-                    # A retried side effect is recognized, not repeated. This is
-                    # what stops an action (a payment, a message) firing twice.
                     result = f"[idempotent] already executed earlier: {done_actions[key]}"
                 elif not _approve(t, args):
                     result = "[denied] human declined this action"
@@ -115,10 +96,6 @@ def run(user_message: str) -> str:
 
 
 if __name__ == "__main__":
-    q = (
-        sys.argv[1]
-        if len(sys.argv) > 1
-        else "What is (128*47)+99? Then read ./note.txt and tell me what it says."
-    )
+    q = sys.argv[1] if len(sys.argv) > 1 else "What is (128*47)+99? Then read ./note.txt."
     print("USER:", q)
     print("\nANSWER:", run(q))
