@@ -34,7 +34,18 @@ OpenClaw, and lessons from OpenAI/Anthropic harness-engineering writing.
 - [x] **Layer 7 — Reliability & evals.** Provider abstraction (swap via env),
   retry with jittered backoff, error taxonomy → recovery action, a no-progress
   loop guard, and a golden-task eval harness. → `providers.py`, `llm.py`, `evals.py`
-- [ ] Layer 8 — Self-improvement & meta-loops (curation, feedback, proactive)
+- [x] **Layer 8 — Self-improvement & proactive (capstone).** The agent writes,
+  verifies, registers, and reuses its own tools (`skills.py`); a learning curve
+  measures its score climbing as skills accrue (`evals.learning_curve`); and a
+  proactive layer detects what's missing without being asked (`proactive.py`).
+
+## Capstone: the self-extending agent
+
+The headline capability is in `skills.extend()`: the agent hits something it
+can't do, **writes a tool for it, tests the tool, admits it only if it passes,
+registers it into the live tool registry, and reuses it forever** — bootstrapping
+its own capability with zero new human code. `evals.learning_curve()` makes that
+measurable: success rate climbing across rounds as skills accumulate.
 
 ## Run
 
