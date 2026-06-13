@@ -52,6 +52,39 @@ def prune(history: list):
     return out, reclaimed
 
 
+def compact(history: list, summarize_fn, threshold_tokens: int = 3000,
+            protect_head: int = 2, protect_tail: int = 6):
+    # Compact only when over threshold. Order matters: prune cheaply first, and
+    # only if still large, pay an LLM to summarize the MIDDLE — protecting the
+    # opening turns (original intent) and the recent turns (live context).
+    history, _ = prune(history)
+    if estimate_tokens(history) <= threshold_tokens:
+        return history, False
+    if len(history) <= protect_head + protect_tail:
+        return history, False
+
+    head = history[:protect_head]
+    middle = history[protect_head:-protect_tail]
+    tail = history[-protect_tail:]
+
+    # Structural safety: never leave an assistant tool-call request in the head
+    # without its results, and never let the tail begin with an orphaned tool
+    # result. Both would make the assembled request invalid.
+    while head and head[-1].get("tool_calls"):
+        middle = [head[-1]] + middle
+        head = head[:-1]
+    while middle and tail and tail[0].get("role") == "tool":
+        tail = [middle[-1]] + tail
+        middle = middle[:-1]
+
+    if not middle:
+        return history, False
+
+    summary = summarize_fn(middle)
+    summary_msg = {"role": "user", "content": f"[summary of earlier turns]\n{summary}"}
+    return head + [summary_msg] + tail, True
+
+
 def build_system_prompt(stable: str, project_context: str = "") -> str:
     # Stable tier (identity + tool guidance) and project tier change rarely, so
     # they live in the frozen prefix that providers can cache.

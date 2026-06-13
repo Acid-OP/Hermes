@@ -32,6 +32,25 @@ def _approve(tool, args) -> bool:
     return input(f"  [APPROVE] run {tool.name}({args})? [y/N] ").strip().lower() == "y"
 
 
+COMPACTION_THRESHOLD = 3000  # tokens; compact the transcript past this
+
+
+def _summarize(middle: list) -> str:
+    text = "\n".join(
+        f"{m.get('role')}: {str(m.get('content'))[:500]}" for m in middle
+    )
+    resp = llm.complete(
+        [
+            {
+                "role": "system",
+                "content": "Summarize these agent turns concisely. Preserve decisions, results, file names, and errors.",
+            },
+            {"role": "user", "content": text},
+        ]
+    )
+    return resp.choices[0].message.content
+
+
 def _execute(t, args) -> str:
     try:
         return str(t.impl(**args))
@@ -58,6 +77,9 @@ def run(user_message: str) -> str:
     tools.TOOL_LOG.clear()
 
     for iteration in range(MAX_ITERATIONS):
+        history, compacted = context.compact(history, _summarize, COMPACTION_THRESHOLD)
+        if compacted:
+            print("  [COMPACT] summarized middle of transcript")
         print(f"\n--- iteration {iteration + 1} (~{context.estimate_tokens(history)} tok) ---")
         api_messages = context.assemble(SYSTEM_PROMPT, history)
         resp = llm.complete(api_messages, tools=tools.all_schemas())
