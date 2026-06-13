@@ -132,6 +132,7 @@ def run(user_message: str, session_id: str = "default") -> str:
                     continue
             memory.save_turn(session_id, "assistant", answer)
             harness.trace("final", session=session_id, answer=str(answer)[:300])
+            harness.write_progress(session_id, "complete", str(answer)[:1000])
             return answer
 
         for tc in msg.tool_calls:
@@ -162,6 +163,7 @@ def run(user_message: str, session_id: str = "default") -> str:
                 {"role": "tool", "tool_call_id": tc.id, "content": str(result)}
             )
 
+    harness.write_progress(session_id, "stopped", "max iterations reached without a final answer")
     return "Stopped: max iterations reached without a final answer."
 
 

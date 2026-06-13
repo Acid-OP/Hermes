@@ -4,3 +4,4 @@ __pycache__/
 
 harness_memory.db
 harness_trace.jsonl
+harness_progress_*.md

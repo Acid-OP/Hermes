@@ -24,7 +24,10 @@ OpenClaw, and lessons from OpenAI/Anthropic harness-engineering writing.
   resume via recalled digest, keyword semantic search (memory_search tool),
   durable facts (remember tool), and a prefetch/write lifecycle in the loop.
   → `memory.py`
-- [ ] Layer 5 — The harness (repo-as-record, init, verification, handoff)
+- [x] **Layer 5 — The harness.** Repo-as-system-of-record (AGENTS.md), JSONL
+  run trace (observability), a task ledger (bounded scope + goal predicate),
+  verification before accepting an answer, and a clean progress handoff each
+  session. → `harness.py`
 - [ ] Layer 6 — Multi-agent (orchestrator-worker, subagents)
 - [ ] Layer 7 — Reliability & evals (provider abstraction, rotation, guardrails)
 - [ ] Layer 8 — Self-improvement & meta-loops (curation, feedback, proactive)

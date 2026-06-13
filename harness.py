@@ -25,6 +25,15 @@ def trace(event: str, **data) -> None:
         f.write(json.dumps(rec, default=str) + "\n")
 
 
+def write_progress(session: str, status: str, summary: str = "") -> str:
+    # Every session must leave a clean, readable state so the next run (or a
+    # human) can pick up without guessing. The handoff artifact, not buried logs.
+    path = f"harness_progress_{session}.md"
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(f"# Session: {session}\n\nstatus: {status}\n\n{summary}\n")
+    return path
+
+
 def verify(goal: str, answer: str):
     # "Terminal message != goal complete." Before accepting the model's answer,
     # an independent judge checks it against the goal. Returns (ok, verdict).
