@@ -44,3 +44,38 @@ PROVIDERS = {
 
 def get(name: str) -> Provider:
     return PROVIDERS[name]
+
+
+def classify_error(exc) -> str:
+    # Map any provider error to a reason, so recovery is a decision not a guess.
+    name = type(exc).__name__.lower()
+    msg = str(exc).lower()
+    if "rate" in name or "429" in msg or "quota" in msg or "resource_exhausted" in msg:
+        return "rate_limit"
+    if "402" in msg or "billing" in msg or "credit" in msg:
+        return "billing"
+    if "401" in msg or "403" in msg or "api key" in msg or "unauthorized" in msg:
+        return "auth"
+    if "context" in msg or "maximum context" in msg or "too long" in msg:
+        return "context_overflow"
+    if "timeout" in name or "timed out" in msg:
+        return "timeout"
+    if "500" in msg or "502" in msg or "503" in msg or "overloaded" in msg:
+        return "server"
+    return "unknown"
+
+
+# Reason -> what the harness should do about it.
+RECOVERY = {
+    "rate_limit": "backoff",
+    "timeout": "backoff",
+    "server": "backoff",
+    "context_overflow": "compress",
+    "auth": "abort",
+    "billing": "abort",
+    "unknown": "backoff",
+}
+
+
+def recovery_action(reason: str) -> str:
+    return RECOVERY.get(reason, "backoff")
