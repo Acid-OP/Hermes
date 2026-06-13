@@ -11,8 +11,34 @@ from __future__ import annotations
 
 import json
 import os
+import re
 
 SKILLS_DIR = os.environ.get("HARNESS_SKILLS", "skills_store")
+
+
+def _parse_spec(text: str) -> dict:
+    # Models wrap JSON in ``` fences; strip them, then parse the spec.
+    t = text.strip()
+    if t.startswith("```"):
+        t = re.sub(r"^```[a-zA-Z]*\n?", "", t)
+        t = re.sub(r"\n?```$", "", t).strip()
+    return json.loads(t)
+
+
+def synthesize(capability: str) -> dict:
+    # The agent writes a new tool. Returns a spec {name, description, code}.
+    import llm
+
+    resp = llm.complete(
+        [
+            {
+                "role": "system",
+                "content": 'Write ONE Python function implementing the capability. Reply ONLY with JSON: {"name": str, "description": str, "code": str}. The function takes simple string/number args and returns a string. Use stdlib only.',
+            },
+            {"role": "user", "content": capability},
+        ]
+    )
+    return _parse_spec(resp.choices[0].message.content)
 
 
 def _ensure():
