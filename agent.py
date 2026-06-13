@@ -110,8 +110,13 @@ def run(user_message: str, session_id: str = "default") -> str:
         msg = resp.choices[0].message
         history.append(msg.model_dump(exclude_none=True))
 
+        harness.trace("turn", session=session_id, iteration=iteration + 1,
+                      tokens=context.estimate_tokens(history),
+                      tool_calls=[tc.function.name for tc in (msg.tool_calls or [])])
+
         if not msg.tool_calls:
             memory.save_turn(session_id, "assistant", msg.content)
+            harness.trace("final", session=session_id, answer=str(msg.content)[:300])
             return msg.content
 
         for tc in msg.tool_calls:
@@ -135,6 +140,8 @@ def run(user_message: str, session_id: str = "default") -> str:
                 result = _execute(t, args)
 
             result = _maybe_offload(result)
+            harness.trace("tool", session=session_id, name=name, args=args,
+                          result=str(result)[:200])
             print(f"  [OBSERVE] {str(result)[:120]}")
             history.append(
                 {"role": "tool", "tool_call_id": tc.id, "content": str(result)}

@@ -8,7 +8,21 @@ not trusted, observability, and a clean handoff every session.
 
 from __future__ import annotations
 
+import json
 import os
+import time
+
+TRACE_PATH = os.environ.get("HARNESS_TRACE", "harness_trace.jsonl")
+
+
+def trace(event: str, **data) -> None:
+    # Observability is not optional for systems that act on their own: every
+    # turn, tool call, and decision is appended as a structured line so a run
+    # can be inspected and replayed when it goes wrong.
+    rec = {"ts": time.time(), "event": event}
+    rec.update(data)
+    with open(TRACE_PATH, "a", encoding="utf-8") as f:
+        f.write(json.dumps(rec, default=str) + "\n")
 
 
 def load_instructions(workspace: str = ".") -> str:
