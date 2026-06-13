@@ -25,6 +25,24 @@ def trace(event: str, **data) -> None:
         f.write(json.dumps(rec, default=str) + "\n")
 
 
+def verify(goal: str, answer: str):
+    # "Terminal message != goal complete." Before accepting the model's answer,
+    # an independent judge checks it against the goal. Returns (ok, verdict).
+    import llm
+
+    resp = llm.complete(
+        [
+            {
+                "role": "system",
+                "content": "You are a strict verifier. Decide if the ANSWER fully satisfies the GOAL. Reply exactly 'PASS' or 'FAIL: <one-line reason>'.",
+            },
+            {"role": "user", "content": f"GOAL:\n{goal}\n\nANSWER:\n{answer}"},
+        ]
+    )
+    out = (resp.choices[0].message.content or "").strip()
+    return out.upper().startswith("PASS"), out
+
+
 class TaskLedger:
     # A structured task list the agent works against, instead of an open-ended
     # "do stuff" goal. Bounds scope (it can't wander) and gives an objective

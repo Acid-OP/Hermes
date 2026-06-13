@@ -15,6 +15,7 @@ import tools
 from tools import ToolCategory
 
 MAX_ITERATIONS = 10
+MAX_VERIFY = 1  # at most one verify-and-retry before accepting an answer
 
 # Stable tier of the system prompt — frozen for the whole session so the
 # provider can cache this prefix across turns.
@@ -98,6 +99,7 @@ def run(user_message: str, session_id: str = "default") -> str:
     # is assembled fresh each turn and kept frozen, so it stays cacheable.
     history = [{"role": "user", "content": user_message}]
     done_actions: dict = {}
+    verify_attempts = 0
     tools.TOOL_LOG.clear()
 
     for iteration in range(MAX_ITERATIONS):
@@ -115,9 +117,22 @@ def run(user_message: str, session_id: str = "default") -> str:
                       tool_calls=[tc.function.name for tc in (msg.tool_calls or [])])
 
         if not msg.tool_calls:
-            memory.save_turn(session_id, "assistant", msg.content)
-            harness.trace("final", session=session_id, answer=str(msg.content)[:300])
-            return msg.content
+            answer = msg.content
+            # Don't trust "done": verify against the goal, give the critique
+            # back once, and let the agent finish the job properly.
+            if verify_attempts < MAX_VERIFY:
+                ok, verdict = harness.verify(user_message, answer)
+                harness.trace("verify", session=session_id, ok=ok, verdict=verdict[:200])
+                if not ok:
+                    verify_attempts += 1
+                    history.append({
+                        "role": "user",
+                        "content": f"A verifier rejected your answer: {verdict}\nFix the gap and finish.",
+                    })
+                    continue
+            memory.save_turn(session_id, "assistant", answer)
+            harness.trace("final", session=session_id, answer=str(answer)[:300])
+            return answer
 
         for tc in msg.tool_calls:
             name = tc.function.name
