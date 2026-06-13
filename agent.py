@@ -35,16 +35,19 @@ def _approve(tool, args) -> bool:
 COMPACTION_THRESHOLD = 3000  # tokens; compact the transcript past this
 
 
-def _summarize(middle: list) -> str:
+def _summarize(middle: list, prev_summary: str = "") -> str:
     text = "\n".join(
         f"{m.get('role')}: {str(m.get('content'))[:500]}" for m in middle
     )
+    instruction = "Summarize these agent turns concisely. Preserve decisions, results, file names, and errors."
+    if prev_summary:
+        instruction = (
+            "Update the running summary below to incorporate the new turns, "
+            "preserving continuity. Keep it concise.\n\n" + prev_summary
+        )
     resp = llm.complete(
         [
-            {
-                "role": "system",
-                "content": "Summarize these agent turns concisely. Preserve decisions, results, file names, and errors.",
-            },
+            {"role": "system", "content": instruction},
             {"role": "user", "content": text},
         ]
     )

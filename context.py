@@ -80,9 +80,39 @@ def compact(history: list, summarize_fn, threshold_tokens: int = 3000,
     if not middle:
         return history, False
 
-    summary = summarize_fn(middle)
+    # Iterative summaries: pull the previous summary out of the middle and feed
+    # it forward, so each compaction UPDATES one running narrative instead of
+    # producing disconnected fragments.
+    prev_summary = ""
+    fresh_middle = []
+    for m in middle:
+        c = m.get("content")
+        if isinstance(c, str) and c.startswith("[summary of earlier turns]"):
+            prev_summary = c
+        else:
+            fresh_middle.append(m)
+
+    try:
+        summary = summarize_fn(fresh_middle, prev_summary)
+    except Exception:
+        # Never lose history to a summarizer outage: fall back to a crude,
+        # LLM-free summary that still keeps the continuity anchors.
+        summary = _fallback_summary(fresh_middle, prev_summary)
+
     summary_msg = {"role": "user", "content": f"[summary of earlier turns]\n{summary}"}
     return head + [summary_msg] + tail, True
+
+
+def _fallback_summary(middle: list, prev_summary: str = "") -> str:
+    lines = []
+    if prev_summary:
+        lines.append(prev_summary.replace("[summary of earlier turns]\n", "").strip())
+    for m in middle:
+        role = m.get("role")
+        content = str(m.get("content") or "")[:160]
+        if role in ("user", "assistant", "tool") and content:
+            lines.append(f"- {role}: {content}")
+    return "\n".join(lines)[:2000]
 
 
 def build_system_prompt(stable: str, project_context: str = "") -> str:
