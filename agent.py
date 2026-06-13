@@ -101,6 +101,7 @@ def run(user_message: str, session_id: str = "default") -> str:
     history = [{"role": "user", "content": user_message}]
     done_actions: dict = {}
     verify_attempts = 0
+    guard = harness.LoopGuard()
     tools.TOOL_LOG.clear()
 
     for iteration in range(MAX_ITERATIONS):
@@ -136,10 +137,20 @@ def run(user_message: str, session_id: str = "default") -> str:
             harness.write_progress(session_id, "complete", str(answer)[:1000])
             return answer
 
+        guard_stop = False
         for tc in msg.tool_calls:
             name = tc.function.name
             args = json.loads(tc.function.arguments)
             print(f"  [ACT]     {name}({args})")
+
+            if not guard.ok(name, args):
+                harness.trace("loop_guard", session=session_id, name=name)
+                history.append({
+                    "role": "tool", "tool_call_id": tc.id,
+                    "content": "[loop guard] this exact call repeated with no progress; stopping.",
+                })
+                guard_stop = True
+                continue
 
             t = tools.get(name)
             if t is None:
@@ -163,6 +174,10 @@ def run(user_message: str, session_id: str = "default") -> str:
             history.append(
                 {"role": "tool", "tool_call_id": tc.id, "content": str(result)}
             )
+
+        if guard_stop:
+            harness.write_progress(session_id, "stopped", "loop guard: no-progress loop detected")
+            return "Stopped: detected a no-progress loop."
 
     harness.write_progress(session_id, "stopped", "max iterations reached without a final answer")
     return "Stopped: max iterations reached without a final answer."

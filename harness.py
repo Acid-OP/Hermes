@@ -25,6 +25,19 @@ def trace(event: str, **data) -> None:
         f.write(json.dumps(rec, default=str) + "\n")
 
 
+class LoopGuard:
+    # Stop condition #4: detect the agent repeating the SAME call with the same
+    # args and getting nowhere (the "broken tool called 400 times" failure).
+    def __init__(self, limit: int = 3):
+        self.counts = {}
+        self.limit = limit
+
+    def ok(self, name: str, args) -> bool:
+        key = f"{name}:{args}"
+        self.counts[key] = self.counts.get(key, 0) + 1
+        return self.counts[key] < self.limit
+
+
 def write_progress(session: str, status: str, summary: str = "") -> str:
     # Every session must leave a clean, readable state so the next run (or a
     # human) can pick up without guessing. The handoff artifact, not buried logs.
