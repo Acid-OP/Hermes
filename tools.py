@@ -13,6 +13,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Callable
 
+import memory
+
 
 class ToolCategory(str, Enum):
     # The taxonomy that drives safety policy downstream.
@@ -101,6 +103,21 @@ def read_file(path: str) -> str:
             return f.read()[:2000]
     except Exception as e:
         return f"ERROR: {e}"
+
+
+@tool(
+    name="memory_search",
+    description="Search durable memory of past turns. Use before answering anything about prior work, decisions, or facts the user gave you earlier.",
+    parameters={
+        "type": "object",
+        "properties": {"query": {"type": "string"}},
+        "required": ["query"],
+    },
+    category=ToolCategory.DATA,
+)
+def memory_search(query: str) -> str:
+    hits = memory.search(query)
+    return "\n".join(hits) if hits else "(no relevant memory)"
 
 
 @tool(

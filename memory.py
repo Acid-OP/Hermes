@@ -49,6 +49,25 @@ def load_session(session: str) -> list:
     return [{"role": r, "content": t} for r, t in rows]
 
 
+def search(query: str, limit: int = 5) -> list:
+    # Keyword recall across all stored turns (the FTS-style approach — Hermes's
+    # lane). A real system swaps this for embedding/vector search; the interface
+    # stays the same. Ranked by term frequency.
+    terms = [t for t in query.lower().split() if len(t) > 2]
+    if not terms:
+        return []
+    c = _conn()
+    rows = c.execute("SELECT role, content FROM turns").fetchall()
+    c.close()
+    scored = []
+    for role, content in rows:
+        score = sum(content.lower().count(t) for t in terms)
+        if score:
+            scored.append((score, role, content))
+    scored.sort(reverse=True)
+    return [f"{r}: {c[:200]}" for _, r, c in scored[:limit]]
+
+
 def session_digest(session: str, limit: int = 20) -> str:
     # A compact recall of recent prior turns, to inject as context on resume.
     rows = load_session(session)[-limit:]
