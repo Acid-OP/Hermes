@@ -19,6 +19,21 @@ def score_exact(answer, expect) -> bool:
     return str(expect).strip().lower() in str(answer).strip().lower()
 
 
+def learning_curve(run_fn, improve_fn=None, rounds: int = 3, tasks=None) -> list:
+    # The self-improvement demo: run the suite repeatedly; between rounds the
+    # agent improves itself on the tasks it failed (improve_fn). A self-extending
+    # agent's score should CLIMB across rounds. Returns the score per round.
+    curve = []
+    for _ in range(rounds):
+        res = run_suite(run_fn, tasks)
+        curve.append(res["score"])
+        if improve_fn:
+            failures = [r["task"] for r in res["results"] if not r["pass"]]
+            if failures:
+                improve_fn(failures)
+    return curve
+
+
 def run_suite(run_fn, tasks=None) -> dict:
     tasks = tasks or GOLDEN
     results = []
