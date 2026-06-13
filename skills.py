@@ -45,6 +45,28 @@ def _ensure():
     os.makedirs(SKILLS_DIR, exist_ok=True)
 
 
+def compile_skill(spec: dict):
+    # Turn skill code into a callable. exec of model-written code is unsafe —
+    # a lab shortcut; in production this runs in a sandbox (your Lovable lesson).
+    ns: dict = {}
+    exec(spec["code"], ns)
+    fn = ns.get(spec["name"])
+    if not callable(fn):
+        raise ValueError(f"skill code did not define {spec['name']}")
+    return fn
+
+
+def verify_skill(spec: dict, test_input, expected) -> bool:
+    # Never admit generated code blindly: it must pass a test first. This is the
+    # verification discipline turned on the agent's own output.
+    try:
+        fn = compile_skill(spec)
+        out = fn(**test_input) if isinstance(test_input, dict) else fn(test_input)
+        return str(expected) in str(out)
+    except Exception:
+        return False
+
+
 def save_skill(name: str, code: str, description: str) -> None:
     _ensure()
     with open(os.path.join(SKILLS_DIR, f"{name}.json"), "w", encoding="utf-8") as f:
