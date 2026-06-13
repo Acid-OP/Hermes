@@ -28,7 +28,9 @@ OpenClaw, and lessons from OpenAI/Anthropic harness-engineering writing.
   run trace (observability), a task ledger (bounded scope + goal predicate),
   verification before accepting an answer, and a clean progress handoff each
   session. → `harness.py`
-- [ ] Layer 6 — Multi-agent (orchestrator-worker, subagents)
+- [x] **Layer 6 — Multi-agent.** Subagents with isolated context + restricted
+  toolsets (zero-context-cost delegation), an orchestrator-worker decompose/
+  gather, an adversarial critic panel, and parallel execution. → `subagents.py`
 - [ ] Layer 7 — Reliability & evals (provider abstraction, rotation, guardrails)
 - [ ] Layer 8 — Self-improvement & meta-loops (curation, feedback, proactive)
 

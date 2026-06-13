@@ -10,10 +10,17 @@ parent's window stays clean no matter how many steps the child took.
 from __future__ import annotations
 
 import json
+from concurrent.futures import ThreadPoolExecutor
 
 import llm
 import tools
 from tools import ToolCategory
+
+
+def _parallel(thunks, workers: int = 4):
+    # Independent subagents have isolated contexts, so they can run concurrently.
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        return list(ex.map(lambda f: f(), thunks))
 
 
 def _select_schemas(allowed):
@@ -48,7 +55,7 @@ def orchestrate(task: str) -> dict:
     # Orchestrator-worker: a lead decomposes, isolated workers each solve a
     # piece, results are gathered. The parent never sees the workers' steps.
     subtasks = decompose(task)
-    results = [spawn(s) for s in subtasks]
+    results = _parallel([lambda s=s: spawn(s) for s in subtasks])
     return {"subtasks": subtasks, "results": results}
 
 
@@ -63,14 +70,10 @@ def critique(claim: str, n: int = 3) -> dict:
     # Adversarial verification: N independent skeptics each TRY to refute the
     # claim (no tools, pure reasoning). Majority refutation kills it. Diverse
     # attacks catch failure modes a single check would miss.
-    verdicts = [
-        spawn(
-            f"Try to find a flaw or counterexample. If the claim is sound reply exactly 'SOUND', else 'FLAW: <reason>'.\n\nCLAIM: {claim}",
-            max_iterations=2,
-            allowed=[],
-        )
-        for _ in range(n)
-    ]
+    prompt = "Try to find a flaw or counterexample. If the claim is sound reply exactly 'SOUND', else 'FLAW: <reason>'.\n\nCLAIM: " + claim
+    verdicts = _parallel(
+        [lambda: spawn(prompt, max_iterations=2, allowed=[]) for _ in range(n)]
+    )
     return {"survives": _tally(verdicts), "verdicts": verdicts}
 
 
