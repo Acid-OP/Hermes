@@ -28,7 +28,7 @@ def _parse_spec(text: str) -> dict:
 
 def synthesize(capability: str) -> dict:
     # The agent writes a new tool. Returns a spec {name, description, code}.
-    import llm
+    from . import llm
 
     resp = llm.complete(
         [
@@ -81,7 +81,7 @@ def _params_from_fn(fn) -> dict:
 def register_skill(spec: dict) -> None:
     # Admit a verified skill into the LIVE tool registry so the agent reuses it
     # for the rest of its life, and persist it for future sessions.
-    import tools
+    from . import tools
 
     fn = compile_skill(spec)
     tools._REGISTRY[spec["name"]] = tools.Tool(

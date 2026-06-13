@@ -12,9 +12,9 @@ from __future__ import annotations
 import json
 from concurrent.futures import ThreadPoolExecutor
 
-import llm
-import tools
-from tools import ToolCategory
+from . import llm
+from . import tools
+from .tools import ToolCategory
 
 
 def _parallel(thunks, workers: int = 4):

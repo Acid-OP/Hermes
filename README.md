@@ -51,7 +51,25 @@ measurable: success rate climbing across rounds as skills accumulate.
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install openai python-dotenv
+.venv/bin/pip install -r requirements.txt
 echo "GEMINI_API_KEY=<your key>" > .env
-.venv/bin/python agent.py "What is (128*47)+99? Then read ./note.txt."
+.venv/bin/python -m hermes "What is (128*47)+99? Then read ./note.txt."
+```
+
+## Layout
+
+```
+hermes/            the package (one module per concern)
+  agent.py         the loop (Layers 1, 5 wiring)
+  tools.py         tool registry + taxonomy (Layer 2)
+  context.py       context engineering (Layer 3)
+  memory.py        durable memory (Layer 4)
+  harness.py       instructions, trace, ledger, verify, handoff (Layer 5)
+  subagents.py     multi-agent (Layer 6)
+  providers.py     provider abstraction + error taxonomy (Layer 7)
+  llm.py           model access + retry/backoff (Layer 7)
+  evals.py         eval harness + learning curve (Layers 7-8)
+  skills.py        self-extending agent (Layer 8)
+  proactive.py     gap detection (Layer 8)
+  __main__.py      entry point (python -m hermes)
 ```

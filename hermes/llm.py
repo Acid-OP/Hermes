@@ -17,7 +17,7 @@ from openai import (
     RateLimitError,
 )
 
-import providers
+from . import providers
 
 load_dotenv()
 

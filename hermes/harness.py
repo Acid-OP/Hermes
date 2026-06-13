@@ -50,7 +50,7 @@ def write_progress(session: str, status: str, summary: str = "") -> str:
 def verify(goal: str, answer: str):
     # "Terminal message != goal complete." Before accepting the model's answer,
     # an independent judge checks it against the goal. Returns (ok, verdict).
-    import llm
+    from . import llm
 
     resp = llm.complete(
         [

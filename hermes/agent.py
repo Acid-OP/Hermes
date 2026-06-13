@@ -7,13 +7,13 @@ import hashlib
 import json
 import sys
 
-import context
-import harness
-import llm
-import memory
-import subagents
-import tools
-from tools import ToolCategory
+from . import context
+from . import harness
+from . import llm
+from . import memory
+from . import subagents
+from . import tools
+from .tools import ToolCategory
 
 MAX_ITERATIONS = 10
 MAX_VERIFY = 1  # at most one verify-and-retry before accepting an answer
@@ -182,8 +182,3 @@ def run(user_message: str, session_id: str = "default") -> str:
     harness.write_progress(session_id, "stopped", "max iterations reached without a final answer")
     return "Stopped: max iterations reached without a final answer."
 
-
-if __name__ == "__main__":
-    q = sys.argv[1] if len(sys.argv) > 1 else "What is (128*47)+99? Then read ./note.txt."
-    print("USER:", q)
-    print("\nANSWER:", run(q))
