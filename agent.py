@@ -79,6 +79,18 @@ def run(user_message: str, session_id: str = "default") -> str:
     digest = memory.session_digest(session_id)
     system_prompt = context.build_system_prompt(SYSTEM_PROMPT, project_context=digest)
 
+    # Prefetch: pull durable facts + memory relevant to this request and inject
+    # them as volatile context (read-before-turn). Writes happen during the run
+    # (remember tool) and after (save_turn) — the full read/write lifecycle.
+    facts = memory.recall_facts()
+    prefetch = memory.search(user_message)
+    volatile_parts = []
+    if facts:
+        volatile_parts.append("known facts: " + "; ".join(f"{k}={v}" for k, v in facts.items()))
+    if prefetch:
+        volatile_parts.append("relevant memory:\n" + "\n".join(prefetch))
+    volatile = "\n".join(volatile_parts)
+
     # history holds only the conversation (no system prompt). The system prompt
     # is assembled fresh each turn and kept frozen, so it stays cacheable.
     history = [{"role": "user", "content": user_message}]
@@ -90,7 +102,7 @@ def run(user_message: str, session_id: str = "default") -> str:
         if compacted:
             print("  [COMPACT] summarized middle of transcript")
         print(f"\n--- iteration {iteration + 1} (~{context.estimate_tokens(history)} tok) ---")
-        api_messages = context.assemble(system_prompt, history)
+        api_messages = context.assemble(system_prompt, history, volatile=volatile)
         resp = llm.complete(api_messages, tools=tools.all_schemas())
         msg = resp.choices[0].message
         history.append(msg.model_dump(exclude_none=True))

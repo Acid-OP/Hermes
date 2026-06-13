@@ -16,8 +16,14 @@ OpenClaw, and lessons from OpenAI/Anthropic harness-engineering writing.
   taxonomy; action tools gated by human approval + an idempotency ledger;
   large tool outputs offloaded to a store with only a reference in context.
   → `tools.py`, `agent.py`
-- [ ] Layer 3 — Context engineering (assembly, caching, compaction)
-- [ ] Layer 4 — Memory (episodic / semantic / procedural / entity / summary)
+- [x] **Layer 3 — Context engineering.** Token monitoring, frozen cacheable
+  system prompt with volatile injected at the tail, cheap dedup pruning, then
+  threshold-triggered middle summarization with head/tail protection, iterative
+  summaries, and a deterministic fallback. → `context.py`
+- [x] **Layer 4 — Memory.** SQLite durable store: episodic turns, session
+  resume via recalled digest, keyword semantic search (memory_search tool),
+  durable facts (remember tool), and a prefetch/write lifecycle in the loop.
+  → `memory.py`
 - [ ] Layer 5 — The harness (repo-as-record, init, verification, handoff)
 - [ ] Layer 6 — Multi-agent (orchestrator-worker, subagents)
 - [ ] Layer 7 — Reliability & evals (provider abstraction, rotation, guardrails)
