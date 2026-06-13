@@ -31,7 +31,9 @@ OpenClaw, and lessons from OpenAI/Anthropic harness-engineering writing.
 - [x] **Layer 6 — Multi-agent.** Subagents with isolated context + restricted
   toolsets (zero-context-cost delegation), an orchestrator-worker decompose/
   gather, an adversarial critic panel, and parallel execution. → `subagents.py`
-- [ ] Layer 7 — Reliability & evals (provider abstraction, rotation, guardrails)
+- [x] **Layer 7 — Reliability & evals.** Provider abstraction (swap via env),
+  retry with jittered backoff, error taxonomy → recovery action, a no-progress
+  loop guard, and a golden-task eval harness. → `providers.py`, `llm.py`, `evals.py`
 - [ ] Layer 8 — Self-improvement & meta-loops (curation, feedback, proactive)
 
 ## Run
