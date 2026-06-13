@@ -52,6 +52,28 @@ def orchestrate(task: str) -> dict:
     return {"subtasks": subtasks, "results": results}
 
 
+def _tally(verdicts) -> bool:
+    # Survives only if fewer than half the skeptics refuted it.
+    n = len(verdicts)
+    refuted = sum(1 for v in verdicts if not str(v).strip().upper().startswith("SOUND"))
+    return refuted < (n + 1) // 2
+
+
+def critique(claim: str, n: int = 3) -> dict:
+    # Adversarial verification: N independent skeptics each TRY to refute the
+    # claim (no tools, pure reasoning). Majority refutation kills it. Diverse
+    # attacks catch failure modes a single check would miss.
+    verdicts = [
+        spawn(
+            f"Try to find a flaw or counterexample. If the claim is sound reply exactly 'SOUND', else 'FLAW: <reason>'.\n\nCLAIM: {claim}",
+            max_iterations=2,
+            allowed=[],
+        )
+        for _ in range(n)
+    ]
+    return {"survives": _tally(verdicts), "verdicts": verdicts}
+
+
 def spawn(task: str, max_iterations: int = 6, allowed=None) -> str:
     history = [
         {"role": "system", "content": "You are a focused subagent. Do exactly the task and report the result concisely."},
