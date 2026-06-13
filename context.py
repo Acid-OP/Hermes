@@ -25,6 +25,33 @@ def estimate_tokens(messages) -> int:
     return total // 4
 
 
+def prune(history: list):
+    # Cheap compaction, no LLM call: when the same tool output appears multiple
+    # times (the same file read repeatedly), keep only the latest full copy and
+    # stub the earlier ones. Reclaims tokens for free before paying for an LLM
+    # summary. Returns (new_history, chars_reclaimed). Does not mutate input.
+    last_index = {}
+    for i, m in enumerate(history):
+        if m.get("role") == "tool" and isinstance(m.get("content"), str):
+            last_index[m["content"]] = i
+    reclaimed = 0
+    out = []
+    for i, m in enumerate(history):
+        is_stale_dup = (
+            m.get("role") == "tool"
+            and isinstance(m.get("content"), str)
+            and last_index.get(m["content"]) != i
+        )
+        if is_stale_dup:
+            reclaimed += len(m["content"])
+            nm = dict(m)
+            nm["content"] = "[duplicate tool output omitted — superseded by a later identical result]"
+            out.append(nm)
+        else:
+            out.append(dict(m))
+    return out, reclaimed
+
+
 def build_system_prompt(stable: str, project_context: str = "") -> str:
     # Stable tier (identity + tool guidance) and project tier change rarely, so
     # they live in the frozen prefix that providers can cache.
