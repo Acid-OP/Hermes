@@ -11,6 +11,7 @@ import context
 import harness
 import llm
 import memory
+import subagents
 import tools
 from tools import ToolCategory
 

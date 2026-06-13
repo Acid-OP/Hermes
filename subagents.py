@@ -28,6 +28,30 @@ def _select_schemas(allowed):
     return [s for s in tools.all_schemas() if s["function"]["name"] in allowed]
 
 
+def decompose(task: str) -> list:
+    resp = llm.complete(
+        [
+            {"role": "system", "content": "Break the task into 2-4 independent subtasks. Reply as a JSON array of strings, nothing else."},
+            {"role": "user", "content": task},
+        ]
+    )
+    try:
+        subs = json.loads(resp.choices[0].message.content)
+        if isinstance(subs, list) and subs:
+            return [str(s) for s in subs]
+    except Exception:
+        pass
+    return [task]  # fall back to treating it as one task
+
+
+def orchestrate(task: str) -> dict:
+    # Orchestrator-worker: a lead decomposes, isolated workers each solve a
+    # piece, results are gathered. The parent never sees the workers' steps.
+    subtasks = decompose(task)
+    results = [spawn(s) for s in subtasks]
+    return {"subtasks": subtasks, "results": results}
+
+
 def spawn(task: str, max_iterations: int = 6, allowed=None) -> str:
     history = [
         {"role": "system", "content": "You are a focused subagent. Do exactly the task and report the result concisely."},
@@ -47,3 +71,17 @@ def spawn(task: str, max_iterations: int = 6, allowed=None) -> str:
             result = t.impl(**args) if t else f"ERROR: unknown tool {name}"
             history.append({"role": "tool", "tool_call_id": tc.id, "content": str(result)})
     return "(subagent hit its iteration cap)"
+
+
+@tools.tool(
+    name="delegate",
+    description="Delegate a self-contained subtask to an isolated subagent; returns only its distilled result.",
+    parameters={
+        "type": "object",
+        "properties": {"task": {"type": "string"}},
+        "required": ["task"],
+    },
+    category=ToolCategory.ORCHESTRATION,
+)
+def delegate(task: str) -> str:
+    return spawn(task)
