@@ -8,6 +8,7 @@ import json
 import sys
 
 import context
+import harness
 import llm
 import memory
 import tools
@@ -77,7 +78,9 @@ def run(user_message: str, session_id: str = "default") -> str:
     # Durable memory: recall prior turns from this session and persist new ones.
     memory.save_turn(session_id, "user", user_message)
     digest = memory.session_digest(session_id)
-    system_prompt = context.build_system_prompt(SYSTEM_PROMPT, project_context=digest)
+    instructions = harness.load_instructions()
+    project_context = "\n\n".join(p for p in [instructions, digest] if p)
+    system_prompt = context.build_system_prompt(SYSTEM_PROMPT, project_context=project_context)
 
     # Prefetch: pull durable facts + memory relevant to this request and inject
     # them as volatile context (read-before-turn). Writes happen during the run
